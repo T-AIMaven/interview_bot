@@ -6,3 +6,5 @@ streamlit
 langchain 
 langchain_community
 pypdf
+pysqlite3-binary
+pysqlite3

@@ -1,4 +1,9 @@
+import sys
+import pysqlite3  # Important fix for Streamlit Cloud sqlite3 version
+sys.modules["sqlite3"] = pysqlite3
+
 import os
+import shutil
 import streamlit as st
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -6,52 +11,57 @@ from chromadb.utils import embedding_functions
 import chromadb
 import openai
 
-# Constants
+# === Constants ===
 CHROMA_DATA_PATH = "chroma_data/"
 EMBED_MODEL = "all-MiniLM-L6-v2"
 COLLECTION_NAME = "pdf_chunks"
 
-# Initialize ChromaDB client
+# === Initialize ChromaDB ===
 client = chromadb.PersistentClient(path=CHROMA_DATA_PATH)
 
-# Initialize embedding function
+# === Initialize Embedding Function ===
 embedding_func = embedding_functions.SentenceTransformerEmbeddingFunction(
     model_name=EMBED_MODEL
 )
 
-# Ensure the collection exists
+# === Create/Get Collection ===
 collection = client.get_or_create_collection(
     name=COLLECTION_NAME,
     embedding_function=embedding_func,
     metadata={"hnsw:space": "cosine"},
 )
 
-# Function to process PDF
-def process_pdf(file_path, chunk_size, chunk_overlap):
-    """Processes the uploaded PDF file, chunks it, and stores it in ChromaDB."""
-    loader = PyPDFLoader(file_path)
-    document = loader.load()
+# === Functions ===
 
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=chunk_size,
-        chunk_overlap=chunk_overlap
-    )
-    chunked_documents = text_splitter.split_documents(document)
+def process_pdfs(file_paths, chunk_size, chunk_overlap):
+    """Processes multiple PDFs and adds chunks to ChromaDB."""
+    chunk_count = 0
 
-    documents = [doc.page_content for doc in chunked_documents]
-    metadatas = [doc.metadata for doc in chunked_documents]
+    for file_path in file_paths:
+        loader = PyPDFLoader(file_path)
+        documents = loader.load()
 
-    collection.add(
-        documents=documents,
-        metadatas=metadatas,
-        ids=[f"id_{i}" for i in range(len(chunked_documents))],
-    )
-    
-    return len(chunked_documents)
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap
+        )
+        chunks = text_splitter.split_documents(documents)
 
-# Function to query ChromaDB
+        documents_texts = [doc.page_content for doc in chunks]
+        metadatas = [doc.metadata for doc in chunks]
+
+        collection.add(
+            documents=documents_texts,
+            metadatas=metadatas,
+            ids=[f"{os.path.basename(file_path)}_id_{i}" for i in range(len(chunks))]
+        )
+
+        chunk_count += len(chunks)
+
+    return chunk_count
+
 def query_chunks(query_text, top_n=5):
-    """Queries the ChromaDB collection and returns the top N most relevant chunks."""
+    """Queries ChromaDB and returns the top N relevant chunks."""
     results = collection.query(
         query_texts=[query_text],
         n_results=top_n,
@@ -60,111 +70,83 @@ def query_chunks(query_text, top_n=5):
         return [doc[0] for doc in results["documents"]]
     return ["No relevant information found."]
 
-# Function to call OpenAI (new SDK)
 def call_openai(api_key, query_text, context):
-    """Calls OpenAI API with the query and context using the new SDK."""
+    """Calls OpenAI API to get a response."""
     client = openai.OpenAI(api_key=api_key)
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-4",
         messages=[
-            {"role": "system", "content": "You are a helpful assistant. based on the context provided, answer the user's question."},
+            {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": f"{query_text}\n\nContext:\n{context}"},
         ],
     )
     return response.choices[0].message.content
 
-# Function to display messages in a styled way
-def display_message(message, sender="assistant"):
-    icon = "🤖" if sender == "assistant" else "👤"
-    alignment = "assistant" if sender == "assistant" else "user"
-    st.markdown(f"""
-    <div class="chat-message {alignment}">
-        <div class="icon">{icon}</div>
-        <div class="text">{message}</div>
-    </div>
-    """, unsafe_allow_html=True)
+def clear_chroma_db():
+    """Completely clears ChromaDB by deleting the local folder."""
+    if os.path.exists(CHROMA_DATA_PATH):
+        shutil.rmtree(CHROMA_DATA_PATH)
+    # Reinitialize everything
+    global client, collection
+    client = chromadb.PersistentClient(path=CHROMA_DATA_PATH)
+    collection = client.get_or_create_collection(
+        name=COLLECTION_NAME,
+        embedding_function=embedding_func,
+        metadata={"hnsw:space": "cosine"},
+    )
 
-# Streamlit App
+# === Streamlit App ===
+
 def main():
-    st.set_page_config(page_title="PDF Q&A with ChromaDB", layout="centered")
+    st.title("📄 Multi-PDF Upload and Manage ChromaDB 🔥")
 
-    st.markdown("""
-        <style>
-        .chat-message {
-            border: 1px solid #ccc;
-            padding: 10px;
-            border-radius: 5px;
-            margin: 10px 0;
-            display: flex;
-            max-width: 75%;
-        }
-        .chat-message.assistant {
-            background-color: #f1f1f1;
-            text-align: left;
-            align-items: center;
-            justify-content: left;
-        }
-        .chat-message.user {
-            background-color: #e1f5fe;
-            align-items: center;
-            justify-content: left;
-        }
-        .chat-message .icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 10px;
-        }
-        .chat-message.user .icon {
-            margin-left: 10px;
-            margin-right: 0;
-        }
-        .chat-message .text {
-            color: black;
-        }
-        </style>
-    """, unsafe_allow_html=True)
-
-    st.title("📄 PDF Chunker and Chatbot with ChromaDB")
-
-    # Sidebar settings
-    st.sidebar.title("⚙️ Settings")
+    # Sidebar
+    st.sidebar.title("Settings")
     api_key = st.sidebar.text_input("Enter OpenAI API Key:", type="password")
-    chunk_size = st.sidebar.slider("Chunk Size (characters):", min_value=100, max_value=2000, value=500, step=100)
-    chunk_overlap = st.sidebar.slider("Chunk Overlap (characters):", min_value=0, max_value=500, value=50, step=10)
+    chunk_size = st.sidebar.slider("Chunk Size:", min_value=100, max_value=2000, value=500, step=100)
+    chunk_overlap = st.sidebar.slider("Chunk Overlap:", min_value=0, max_value=500, value=50, step=10)
 
-    uploaded_file = st.file_uploader("Upload a PDF file", type="pdf")
+    st.sidebar.title("ChromaDB Management")
+    if st.sidebar.button("🧹 Clear All Stored PDFs"):
+        clear_chroma_db()
+        st.sidebar.success("Cleared all documents from ChromaDB!")
 
-    if uploaded_file is not None and api_key:
-        temp_file_path = "temp_uploaded_file.pdf"
+    # Upload multiple PDFs
+    uploaded_files = st.file_uploader("Upload PDFs", type="pdf", accept_multiple_files=True)
+
+    if uploaded_files and api_key:
+        temp_file_paths = []
+
+        for uploaded_file in uploaded_files:
+            temp_path = os.path.join("temp", uploaded_file.name)
+            os.makedirs(os.path.dirname(temp_path), exist_ok=True)
+            with open(temp_path, "wb") as f:
+                f.write(uploaded_file.getbuffer())
+            temp_file_paths.append(temp_path)
+
+        # Process uploaded PDFs
+        with st.spinner("Processing PDFs..."):
+            num_chunks = process_pdfs(temp_file_paths, chunk_size, chunk_overlap)
         
-        with open(temp_file_path, "wb") as f:
-            f.write(uploaded_file.read())
+        # Clean up temp files
+        for path in temp_file_paths:
+            os.remove(path)
 
-        num_chunks = process_pdf(temp_file_path, chunk_size, chunk_overlap)
-        
-        os.remove(temp_file_path)
+        st.success(f"✅ Processed {len(uploaded_files)} PDFs into {num_chunks} chunks!")
 
-        st.success(f"✅ Successfully processed and stored {num_chunks} chunks from the PDF!")
+    # Query section
+    st.subheader("💬 Ask a question about the uploaded PDFs")
+    query_text = st.text_input("Your Question:")
 
-    query_text = st.text_input("💬 Ask a question about the PDF:")
-    
     if query_text and api_key:
-        with st.spinner("Thinking..."):
-            top_chunks = query_chunks(query_text, top_n=5)
-            context = "\n\n".join(top_chunks)
+        top_chunks = query_chunks(query_text, top_n=5)
+        context = "\n\n".join(top_chunks)
 
-            # Display context
-            st.text_area("🔎 Top Chunks (Context):", value=context, height=150)
+        st.text_area("🔍 Top Chunks:", value=context, height=200)
 
-            openai_response = call_openai(api_key, query_text, context)
-
-            # Display messages nicely
-            display_message("Here are the top results based on your preferences:", sender="assistant")
-            display_message(openai_response, sender="assistant")
+        # OpenAI Completion
+        openai_response = call_openai(api_key, query_text, context)
+        st.text_area("🤖 OpenAI's Answer:", value=openai_response, height=200)
 
 if __name__ == "__main__":
     main()
