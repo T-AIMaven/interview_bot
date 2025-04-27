@@ -1,0 +1,8 @@
+PyMuPDF
+chromadb 
+sentence-transformers 
+openai 
+streamlit
+langchain 
+langchain_community
+pypdf
