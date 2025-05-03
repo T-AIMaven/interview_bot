@@ -6,5 +6,10 @@ streamlit
 langchain 
 langchain_community
 pypdf
-pysqlite3-binary
-pysqlite3
+
+python-docx
+docx2pdf
+beautifulsoup4
+requests
+pdfplumber
+python-dotenv4
