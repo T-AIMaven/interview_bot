@@ -16,8 +16,10 @@ from chromadb.utils import embedding_functions
 import chromadb
 from openai import OpenAI
 import time
-from config import system_tech_prt, system_behavioral_prt
+from config import system_tech_prt, system_behavioral_prt, cover_letter_generator_prompt
+from resume_builder.parser.resume_parser import read_pdf_text, parse_text_resume
 
+from resume_builder.autocv_core import generate_final_output
 # === Constants ===
 CHROMA_DATA_PATH = "chroma_data/"
 EMBED_MODEL = "all-MiniLM-L6-v2"
@@ -107,7 +109,63 @@ def display_message(message, sender="assistant"):
 def render_resume_builder(api_key):
     st.title("📄 Resume Builder")
 
-    
+    # === Load resume text ===
+    resume_path = "resume_builder/demo_resume/bobby.pdf"
+    if not os.path.exists(resume_path):
+        st.error("❌ Resume file not found.")
+        return
+
+    try:
+        resume_txt = read_pdf_text(resume_path)
+        # resume_content = parse_text_resume(resume_txt)
+    except Exception as e:
+        st.error(f"Failed to read resume: {str(e)}")
+        return
+
+    # === Job Description Input ===
+    job_description = st.text_area("Enter Job Description:", height=150)
+
+    # === Generate Button ===
+    if st.button("🚀 Generate Resume"):
+        if not job_description.strip():
+            st.warning("Please enter a job description.")
+            return
+
+        st.info("🔍 Matching job description with resume...")
+
+        # === Get matching context from ChromaDB (or other logic) ===
+        try:
+            top_chunks = query_chunks(job_description, top_n=5)
+            context = "\n\n".join(top_chunks)
+
+            message = [
+                {"role": "system", "content": "You are resume builder"},
+                {"role": "user", "content": easy_generate_prompt.format(context=context, jd_txt=job_description, resume_txt=resume_txt)}
+            ]
+
+            response = OpenAiCall(message)
+
+        except Exception as e:
+            st.error(f"Chunk query failed: {str(e)}")
+            return
+
+        # === Parse resume text via LLM ===
+        try:
+            st.info("🤖 Generating optimized resume...")
+            parsed_resume_json = parse_text_resume(response)
+
+            message = [
+                {"role": "system", "content": "You are cover letter builder"},
+                {"role": "user", "content": cover_letter_generator_prompt.format(context=context, jd_txt=job_description, resume_json=resume_txt)}
+            ]
+            
+            cover_letter = OpenAiCall(message)
+
+            output_dir = 'resume_builder/demo_resume/created_resume'
+            
+            result = generate_final_output(job_description, parsed_resume_json, output_dir, 'pdf', 'both')
+
+            st.success("✅ Resume parsed successfully!")
 
 # === Interview UI ===
 

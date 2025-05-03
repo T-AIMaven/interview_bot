@@ -10,6 +10,19 @@ from utils.llm_inference import llm_inference
 
 load_dotenv()
 
+def OpenAiCall(messages):
+    api_key = os.getenv("OPENAI_API_KEY")
+    client = OpenAI(api_key=api_key, timeout=20.0)
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=messages,
+        )
+        
+        return response
+    except Exception as e:
+        yield f"⚠️ Error: {str(e)}"
+
 def read_docx_text(path: str) -> List[str]:
     doc = Document(path)
     lines = []
@@ -37,9 +50,15 @@ def parse_pdf_resume(path: str) -> Dict:
     return parse_text_resume(read_pdf_text(path))
 
 def parse_text_resume(text: str) -> Dict:
-    prompt = parse_resume_prompt(text)
+    # prompt = parse_resume_prompt(text)
 
-    response = llm_inference(prompt, temperature=0.0, max_tokens=2000)
+    messages = [
+        {"role": "system", "content": "You are resume parser assistant"},
+        {"role": "user", "content": parse_resume_prompt.format(text=text)}
+        ]
+
+    response= OpenAiCall(messages)
+    # response = llm_inference(prompt, temperature=0.0, max_tokens=2000)
     if response is None:
         raise ValueError("No response from LLM.")
     
@@ -56,7 +75,7 @@ def parse_resume(path: str) -> Dict:
 
 if __name__ == "__main__":
     # Example usage
-    resume_path = "andrew.pdf"  # Change this to your resume path
+    resume_path = "resume_builder/demo_resume/bobby.pdf"  # Change this to your resume path
     parsed_resume = parse_resume(resume_path)
     # dump json to file
     with open("parsed_resume.json", "w") as f:
