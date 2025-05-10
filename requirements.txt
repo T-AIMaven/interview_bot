@@ -12,4 +12,5 @@ docx2pdf
 beautifulsoup4
 requests
 pdfplumber
-python-dotenv4
+python-dotenv
+pypandoc

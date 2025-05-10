@@ -1,4 +1,4 @@
-resume_parser_prompt = """
+parse_resume_prompt = """
 You are a resume parser. Given the following raw resume text, extract:
 - name
 - experiences: a list of objects with company, duration, role (if mentioned), and bullet points (achievements/tasks)
@@ -18,7 +18,6 @@ Note: The plain JSON text should not contain any extra spaces or new lines.
     "phone": "Phone Number",
     "location": "Location",
     "linkedin": "LinkedIn URL",
-    "github": "GitHub URL",
     "website": "Website URL",
   }}
   "summary": "Optional summary",
@@ -43,7 +42,6 @@ Note: The plain JSON text should not contain any extra spaces or new lines.
       "degree": "Degree",
       "start_date": "Start Date",
       "end_date": "End Date",
-      "GPA": "Optional GPA",
       "location": "University Location",
     }},
     ...
@@ -165,8 +163,7 @@ Resume:
 {resume_json}
 """
 
-def parse_resume_prompt(text):
-    return resume_parser_prompt.format(text=text)
+
 
 def parse_job_description_prompt(jd_text):
     return job_description_prompt.format(jd_text=jd_text)

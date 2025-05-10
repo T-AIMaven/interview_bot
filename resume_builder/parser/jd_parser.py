@@ -1,5 +1,5 @@
-from utils.llm_inference import llm_inference
-from utils.prompt import job_description_prompt
+from resume_builder.utils.llm_inference import llm_inference
+from resume_builder.utils.prompt import job_description_prompt
 
 def extract_jd_info(jd_text: str) -> dict:
     prompt = job_description_prompt.format(jd_text=jd_text)

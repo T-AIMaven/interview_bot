@@ -1,16 +1,12 @@
 import os
-from preprocess.jd_parser import extract_jd_info
-from preprocess.resume_parser import parse_resume, read_pdf_text, parse_text_resume
-from db.vector_db import ResumeVectorDB
-from generate.resume_generator import create_resume_from_json
-from generate.cover_letter_generator import create_cover_letter
-from utils.prompt import get_skill_matching_prompt, generate_bullet_points_prompt, generate_cover_letter_prompt, generate_easy_prompt
-from utils.llm_inference import llm_inference
+from resume_builder.parser.jd_parser import extract_jd_info
+from resume_builder.parser.resume_parser import parse_resume, read_pdf_text, parse_text_resume
+from resume_builder.generate.resume_generator import create_resume_from_json
+from resume_builder.generate.cover_letter_generator import create_cover_letter
+from resume_builder.utils.prompt import get_skill_matching_prompt, generate_bullet_points_prompt, generate_cover_letter_prompt, generate_easy_prompt
+from resume_builder.utils.llm_inference import llm_inference
 
 class AutoCV:
-    def __init__(self):
-        self.resume_vector_db = ResumeVectorDB()
-
     def upload_resume(self, resume_file_name: str):
         """Upload resume to Pinecone vector database."""
         self.resume_content = parse_resume(resume_file_name)
@@ -155,7 +151,32 @@ class AutoCV:
             "job_description": jd_path
         }
 
+def generate_final_output(jd_info, resume_json, cover_letter, output_dir, output_format, target):
+        """Generate the final output files."""
+        # Create output directory
+        os.makedirs(output_dir, exist_ok=True)
 
+        # # Save Job Description as text file
+        # jd_path = os.path.join(output_dir, 'JobDescription.txt')
+        # with open(jd_path, 'w') as f:
+        #     f.write(jd_info)
+
+        # Create resume (DOCX & PDF)
+        if target == 'both' or target == 'resume':
+            resume_doc, resume_pdf = create_resume_from_json(resume_json, output_dir, output_format)
+
+        # Create cover letter
+        if target == 'both' or target == 'cover_letter':
+            cover_letter_doc, cover_letter_pdf = create_cover_letter(cover_letter, output_dir, output_format)
+        jd_path = None
+        return {
+            "resume_doc": resume_doc,
+            "resume_pdf": resume_pdf,
+            "cover_letter_doc": cover_letter_doc,
+            "cover_letter_pdf": cover_letter_pdf
+            # "job_description": jd_path
+        }
+        
 # Example usage
 if __name__ == "__main__":
     # Initialize AutoCVCore

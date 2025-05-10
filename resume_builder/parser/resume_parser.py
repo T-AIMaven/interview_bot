@@ -3,25 +3,30 @@ import json
 from typing import Dict, List, Union
 from docx import Document
 import pdfplumber
+from openai import OpenAI
 from dotenv import load_dotenv
+import warnings
 
-from utils.prompt import parse_resume_prompt
-from utils.llm_inference import llm_inference
+from resume_builder.utils.prompt import parse_resume_prompt
+from resume_builder.utils.llm_inference import llm_inference
+
+# Suppress specific warnings from pdfplumber
+warnings.filterwarnings("ignore", category=UserWarning, module="pdfplumber")
+
 
 load_dotenv()
 
-def OpenAiCall(messages):
+def resume_openai_call(messages):
     api_key = os.getenv("OPENAI_API_KEY")
     client = OpenAI(api_key=api_key, timeout=20.0)
-    try:
+    try:        
         response = client.chat.completions.create(
             model="gpt-4o",
-            messages=messages,
+            messages=messages
         )
-        
-        return response
+        return response.choices[0].message.content
     except Exception as e:
-        yield f"⚠️ Error: {str(e)}"
+        return f"⚠️ Error - Resume openai call.: {str(e)}"
 
 def read_docx_text(path: str) -> List[str]:
     doc = Document(path)
@@ -51,18 +56,19 @@ def parse_pdf_resume(path: str) -> Dict:
 
 def parse_text_resume(text: str) -> Dict:
     # prompt = parse_resume_prompt(text)
-
+    print("resume text", text)
     messages = [
         {"role": "system", "content": "You are resume parser assistant"},
         {"role": "user", "content": parse_resume_prompt.format(text=text)}
         ]
 
-    response= OpenAiCall(messages)
+    response= resume_openai_call(messages)
+    print("parsed resume response", response)
     # response = llm_inference(prompt, temperature=0.0, max_tokens=2000)
     if response is None:
         raise ValueError("No response from LLM.")
     
-    return eval(response)
+    return response
 
 def parse_resume(path: str) -> Dict:
     ext = os.path.splitext(path)[1].lower()

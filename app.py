@@ -16,10 +16,13 @@ from chromadb.utils import embedding_functions
 import chromadb
 from openai import OpenAI
 import time
-from config import system_tech_prt, system_behavioral_prt, cover_letter_generator_prompt
+from config import system_tech_prt, system_behavioral_prt, cover_letter_generator_prompt, easy_generate_prompt, skill_extracting_prt, projects_txt
 from resume_builder.parser.resume_parser import read_pdf_text, parse_text_resume
 
 from resume_builder.autocv_core import generate_final_output
+
+# import pypandoc
+# pypandoc.download_pandoc()
 # === Constants ===
 CHROMA_DATA_PATH = "chroma_data/"
 EMBED_MODEL = "all-MiniLM-L6-v2"
@@ -78,7 +81,27 @@ def query_chunks(query_text, top_n=5):
         return top_chunks
     return ["No relevant information found."]
 
-def OpenAiCall(api_key, messages):
+
+def resume_openai_call(messages):
+    api_key = os.getenv("OPENAI_API_KEY")
+    client = OpenAI(api_key=api_key, timeout=60.0)  # Increase timeout
+    retries = 3  # Number of retries
+    for attempt in range(retries):
+        try:
+            response = client.chat.completions.create(
+                model="gpt-4o",
+                messages=messages,
+                temperature=0.4
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            if attempt < retries - 1:  # Retry if attempts are left
+                time.sleep(2)  # Wait for 2 seconds before retrying
+                continue
+            return f"⚠️ Error - Resume openai call.: {str(e)}"
+
+def interview_openai_call(messages):
+    api_key = os.getenv("OPENAI_API_KEY")
     client = OpenAI(api_key=api_key, timeout=20.0)
     try:
         response = client.chat.completions.create(
@@ -92,7 +115,7 @@ def OpenAiCall(api_key, messages):
                 if delta.content:
                     yield delta.content
     except Exception as e:
-        yield f"⚠️ Error: {str(e)}"
+        yield f"⚠️ Error - interview openai call: {str(e)}"
 
 def display_message(message, sender="assistant"):
     icon = "🤖" if sender == "assistant" else "👤"
@@ -107,17 +130,33 @@ def display_message(message, sender="assistant"):
 # === Resume Builder UI ===
 
 def render_resume_builder(api_key):
-    st.title("📄 Resume Builder")
+
+    option = st.selectbox(
+        "Select Resume Type:",
+        options=["M", "H", "R", "A", "M_Mikus"],
+        format_func=lambda x: f"Option {x}"  # Display options as "Option M", "Option H", etc.
+    )
+
+    # Map options to resume paths
+    resume_paths = {
+        "M": "resume_builder/demo_resume/m_resume.txt",
+        "H": "resume_builder/demo_resume/h_resume.txt",
+        "R": "resume_builder/demo_resume/r_resume.txt",
+        "A": "resume_builder/demo_resume/a_resume.txt",
+        "M_Mikus": "resume_builder/demo_resume/m_m_resume.txt"
+    }
+
+    # Get the selected resume path
+    resume_path = resume_paths.get(option)
 
     # === Load resume text ===
-    resume_path = "resume_builder/demo_resume/bobby.pdf"
     if not os.path.exists(resume_path):
-        st.error("❌ Resume file not found.")
+        st.error(f"❌ Resume file not found for option {option}.")
         return
 
     try:
-        resume_txt = read_pdf_text(resume_path)
-        # resume_content = parse_text_resume(resume_txt)
+        with open(resume_path, "r", encoding="utf-8", errors="ignore") as file:
+            resume_txt = file.read()  # Read the content of the .txt file
     except Exception as e:
         st.error(f"Failed to read resume: {str(e)}")
         return
@@ -131,46 +170,49 @@ def render_resume_builder(api_key):
             st.warning("Please enter a job description.")
             return
 
+        message = [
+            {"role": "system", "content": "You are resume builder"},
+            {"role": "user", "content": skill_extracting_prt.format(job_description=job_description)}
+        ]
+
+        skills_txt = resume_openai_call(message)
+        print("context response", response)
+
         st.info("🔍 Matching job description with resume...")
 
         # === Get matching context from ChromaDB (or other logic) ===
-        try:
-            top_chunks = query_chunks(job_description, top_n=5)
-            context = "\n\n".join(top_chunks)
+        top_chunks = query_chunks(job_description, top_n=5)
+        context = "\n\n".join(top_chunks)
 
-            message = [
-                {"role": "system", "content": "You are resume builder"},
-                {"role": "user", "content": easy_generate_prompt.format(context=context, jd_txt=job_description, resume_txt=resume_txt)}
-            ]
+        message = [
+            {"role": "system", "content": "You are resume builder"},
+            {"role": "user", "content": easy_generate_prompt.format(context=context, job_description=job_description, resume_txt=resume_txt, projects_txt=project_text, skills_txt=skills_txt)}
+        ]
 
-            response = OpenAiCall(message)
+        # response = resume_openai_call(message)
+        # print("context response", response)
+    
 
-        except Exception as e:
-            st.error(f"Chunk query failed: {str(e)}")
-            return
+        # # === Parse resume text via LLM ===
+    
+        # st.info("🤖 Generating optimized resume...")
+        # parsed_resume_json = parse_text_resume(response)
+        # print("1", parsed_resume_json)
+        # message = [
+        #     {"role": "system", "content": "You are cover letter builder"},
+        #     {"role": "user", "content": cover_letter_generator_prompt.format(context=context, jd_txt=job_description, resume_json=resume_txt)}
+        # ]
+        # resume_openai_call
+        # cover_letter = resume_openai_call(message)
 
-        # === Parse resume text via LLM ===
-        try:
-            st.info("🤖 Generating optimized resume...")
-            parsed_resume_json = parse_text_resume(response)
-
-            message = [
-                {"role": "system", "content": "You are cover letter builder"},
-                {"role": "user", "content": cover_letter_generator_prompt.format(context=context, jd_txt=job_description, resume_json=resume_txt)}
-            ]
-            
-            cover_letter = OpenAiCall(message)
-
-            output_dir = 'resume_builder/demo_resume/created_resume'
-            
-            result = generate_final_output(job_description, parsed_resume_json, output_dir, 'pdf', 'both')
-
-            st.success("✅ Resume parsed successfully!")
-
+        # output_dir = 'resume_builder/demo_resume/created_resume'
+        # print("2")
+        # result = generate_final_output(job_description, parsed_resume_json, cover_letter, output_dir, 'pdf', 'both')
+        # print("3")
+        # st.success("✅ Resume parsed successfully!")
 # === Interview UI ===
 
 def render_interview_ui(api_key):
-    st.title("🎤 Interview Assistant")
 
     chunk_size = st.sidebar.slider("Chunk Size:", 100, 2000, 500, 100)
     chunk_overlap = st.sidebar.slider("Chunk Overlap:", 0, 500, 50, 10)
@@ -241,7 +283,7 @@ def render_interview_ui(api_key):
         response_placeholder = st.empty()
         streamed_response = ""
         try:
-            for chunk in OpenAiCall(api_key, messages):
+            for chunk in interview_openai_call(messages):
                 streamed_response += chunk
                 response_placeholder.markdown(
                     f"<div style='font-size:18px; line-height:1.6; max-width: 400px; padding: 20px;'>{streamed_response}▌</div>",

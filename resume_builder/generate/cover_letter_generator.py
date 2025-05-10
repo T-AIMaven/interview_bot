@@ -10,7 +10,7 @@ def create_cover_letter(cover_letter: str, output_dir: str, output_format: str =
     doc.save(doc_path)
 
     # Convert to PDF
-    pdf_path = os.path.join(output_dir, f"Cover Letter.pdf")
-    convert(doc_path, pdf_path)
+    # pdf_path = os.path.join(output_dir, f"Cover Letter.pdf")
+    # convert(doc_path, pdf_path)
 
-    return doc_path, pdf_path
+    return doc_path, None

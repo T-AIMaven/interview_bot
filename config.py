@@ -15,7 +15,7 @@ Based on the job description, and the interview questions, you should answer to 
 {context}
 
 
-1. generate the answer to question based on thoroughly the context and just customize it in the star method like situation, task, best approach / best techniques I chose, and result but don't provide the 'situation', 'task', 'best approach / best techniques I chose', and 'result' keyword.
+1. generate the answer to question based on thoroughly the context in spoken language and just customize it in the star method like situation, task, best approach / best techniques I chose, and result.
 also, avoid to generate the AI based sentences and keyword, generated sentences should be answer like real AI developer, not by AI.
 Also, when generate the answer, put sentences in the next row by reading pause point on all sentences generated.
 
@@ -25,7 +25,13 @@ Also, when generate the answer, put sentences in the next row by reading pause p
 5. Maintain a professional tone throughout the response.
 6. Use clear and concise language to convey your points effectively.
 give me answer based on the context provided. if it doesn't have enough info, please provide me answer from your own data
+give me only answer to the question without additional unnecesary information and explanations.
 7.don't say "I don't know" or "in the context provided".
+
+Always use simple word and conversation style to make it easy to understand.
+
+
+
 """
 
 # When answering to the question, please consider the following:
@@ -40,34 +46,73 @@ Please provide good answers that is best fit with job description to behavioral 
 """
 
 easy_generate_prompt = """
-You're helping rewriting the resume for a new role.
+You're an expert AI resume writer tasked with optimizing a candidate's resume for a specific job opening in AI/ML.
 
-## context
+### Objective:
+To rewrite the work experience section of my resume to align with a specific job description, incorporating skills and highlighting key projects.
+
+### Instructions:
+
+## Job Description Analysis:
+
+- Review the provided job description carefully.
+- Identify the key responsibilities, required skills, and qualifications.
+
+## Current Work Experience:
+- Analyze my existing work experience listed on my resume.
+- Maintain the original sentence structure and length, ensuring that the rewritten content is detailed and comprehensive.
+
+## Current Projects List:
+
+- Extract 1 or 2 relevant projects from my current projects list that showcase my skills and achievements.
+- Integrate these projects into the work experience narrative.
+
+## Extracted Skills:
+
+- Utilize the extracted skill list to enhance the rewritten work experience.
+- Ensure that the skills are seamlessly integrated into the descriptions of my roles and responsibilities.
+
+## ATS Compatibility:
+
+- Write in a way that is friendly for Applicant Tracking Systems (ATS).
+- Use keywords and phrases from the job description and extracted skills.
+
+## Tone and Style:
+
+- Maintain a professional tone throughout.
+- Ensure that the language is clear and impactful, showcasing my contributions and achievements.
+
+## Deliverables:
+
+- A rewritten work experience section that reflects the above criteria, ready for inclusion in my updated resume.
+
+## Job Description:
+{job_description}
+
+## context:
 {context}
 
-## Job description (summary):
-{jd_txt}
-
-## Current resume (summary):
+## Current Resume:
 {resume_txt}
 
-Give me a updated and optimized ATS-friendly resume. 
-The first thing you need to do is identify the key skills required and make sure those skills are included and reflected in the skills section and work experience. Be sure that if they require to have certain skill for certain years, you need to include that skill in the appropriate positions so that it can cover required period.
- - Please be sure to make every work experience unique and natural, realistic, professional after choosing best fit with job description from the context and current resume experience and real world projects I build by using real world projects in corresponding company in a way that don't list duties but includes handling which task using what technologies or tools and achieve which result like this.
- - If you find that the projects in my resume or context are great fit for the job description, then you should include them. If you can't find any relevant project in my original resume, then you should make up a real, natural-sounding work experience using your imagination and reflect its project name and the result. Just surprise me, I believe in you.
- - I mean, not explicitly specifying the project but reflecting project name in the work experience and the result with accurate mathematical result 
- - Increase the number of experience for each position to nearly 7 to 8  and hey remember to use unique and real world project names for many experience as possible.
- - It’s important to keep the number of experiences realistic given the time frame of each position. I'll adjust the number of experiences to 7-8 for each role while maintaining realism based on the amount of time you’ve spent in each position. I'll balance key accomplishments and responsibilities while making sure each project and experience fits into a reasonable timeline for each role. But always be sure to make most of experiences include the unique and real-sounding project name and its consequences.
+## Current Projects:
+{projects_txt}
 
- - Avoid a generic career summary.
- - In your bullet points, don't list responsibilities. List what you did to move the company or team forward, including key outcomes. Then, keep the achievements coming. The same idea applies to explaining your skills: Don't just make a list; talk about how you use them.
- - Incorporate metrics and details into your bullet points, focusing on your highlights, your "best of", your biggest achievements.
- - Use outcome metrics and scope of work to show your value and give context to your work.
- - Be sure to come up with project names that are natural-sounding while avoiding "X" like BridgeX or CrossChainX.
+## Extracted Skills:
+{skills_txt}
 
- - When giving me the project name, be sure to make it real and existing project with actual github repository so I can explain it in the next technical interview.
- - Do not eliminate any section from original resume. Just update experiences, skills and summary to the existing ones and replace the keyword from job description
+"""
 
+skill_extracting_prt = """
+Please analyze the following job description and extract all relevant technical stack terms. Do not categorize them; simply provide a bullet list of the relevant tech stack names. Additionally, supplement the list with any relevant technical stacks based on your knowledge.
+
+## Job Description:
+{job_description}
+
+Please format the output as a bullet list, ensuring clarity and organization."
+"""
+
+projects_txt = """
 
 You can use these my real projects to build experience in new resume.
 - building LLM Twin
@@ -97,13 +142,16 @@ The system works by first de-identifying the patient chart, which means removing
 
 - Credit default predictions
 This project is to develop ML models to predict whether a customer will fail to repay their loan or credit card balance. This helps financial institutions assess credit risk, make informed lending decisions, and reduce the likelihood of financial losses by identifying potential defaulters in advance
-"""
 
+"""
 
 cover_letter_generator_prompt = """
     You are a cover letter generator.
     Given the following tech context, job description and resume, generate a professional cover letter, so that you could stand out as an exceptional candidate.
     No markdown formatting, no code blocks, no explanations, just plain text.
+    And don't include any contact informations and recipient information and company name and [XXX] info in the cover letter.
+    Just start like this.
+    'I am senior AI/ML Engineer...'
 
     tech context:
     {context}
@@ -114,17 +162,4 @@ cover_letter_generator_prompt = """
     Resume:
     {resume_json}
     """
-
-class Prompt:
-    system_prt = {"role": "system", "content": "You are Sr, AI/Machine learning Backend Engineer who has job interview. give me answer based on the context provided. if it doesn't have enough info, please provide me answer from your own data.."}
-    
-    # OPENAI_MODEL_ID: str = st.secrets.OPENAI_MODEL_ID
-    # OPENAI_API_KEY: str = st.secrets.OPENAI_API_KEY
-    # DATASET_FILE: str = st.secrets.DATASET_FILE
-    
-    # OPENAI_MODEL_ID: str = os.getenv("OPENAI_MODEL_ID")
-    # OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY")
-    # DATASET_FILE: str = os.getenv("DATASET_FILE")
-    
-prompt = Prompt()
 
