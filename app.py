@@ -176,7 +176,7 @@ def render_resume_builder(api_key):
         ]
 
         skills_txt = resume_openai_call(message)
-        print("context response", response)
+        print("context response", skills_txt)
 
         st.info("🔍 Matching job description with resume...")
 
@@ -186,30 +186,32 @@ def render_resume_builder(api_key):
 
         message = [
             {"role": "system", "content": "You are resume builder"},
-            {"role": "user", "content": easy_generate_prompt.format(context=context, job_description=job_description, resume_txt=resume_txt, projects_txt=project_text, skills_txt=skills_txt)}
+            {"role": "user", "content": easy_generate_prompt.format(tech_context=context, target_job_description=job_description, resume_txt=resume_txt, 
+            projects=projects_txt, 
+            extracted_tech_stacks=skills_txt)}
         ]
 
-        # response = resume_openai_call(message)
-        # print("context response", response)
+        response = resume_openai_call(message)
+        print("context response", response)
     
 
-        # # === Parse resume text via LLM ===
+        # === Parse resume text via LLM ===
     
-        # st.info("🤖 Generating optimized resume...")
-        # parsed_resume_json = parse_text_resume(response)
-        # print("1", parsed_resume_json)
-        # message = [
-        #     {"role": "system", "content": "You are cover letter builder"},
-        #     {"role": "user", "content": cover_letter_generator_prompt.format(context=context, jd_txt=job_description, resume_json=resume_txt)}
-        # ]
-        # resume_openai_call
-        # cover_letter = resume_openai_call(message)
+        st.info("🤖 Generating optimized resume...")
+        parsed_resume_json = parse_text_resume(response)
+        print("1", parsed_resume_json)
+        message = [
+            {"role": "system", "content": "You are cover letter builder"},
+            {"role": "user", "content": cover_letter_generator_prompt.format(context=context, jd_txt=job_description, resume_json=resume_txt)}
+        ]
+        resume_openai_call
+        cover_letter = resume_openai_call(message)
 
-        # output_dir = 'resume_builder/demo_resume/created_resume'
-        # print("2")
-        # result = generate_final_output(job_description, parsed_resume_json, cover_letter, output_dir, 'pdf', 'both')
-        # print("3")
-        # st.success("✅ Resume parsed successfully!")
+        output_dir = 'resume_builder/demo_resume/created_resume'
+        print("2")
+        result = generate_final_output(job_description, parsed_resume_json, cover_letter, output_dir, 'pdf', 'both')
+        print("3")
+        st.success("✅ Resume parsed successfully!")
 # === Interview UI ===
 
 def render_interview_ui(api_key):

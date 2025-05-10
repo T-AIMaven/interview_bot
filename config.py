@@ -46,61 +46,45 @@ Please provide good answers that is best fit with job description to behavioral 
 """
 
 easy_generate_prompt = """
-You're an expert AI resume writer tasked with optimizing a candidate's resume for a specific job opening in AI/ML.
+You are a professional resume editor. Your task is to rewrite the "Experience" section of a resume by updating each company's experience bullets according to the following instructions:
 
-### Objective:
-To rewrite the work experience section of my resume to align with a specific job description, incorporating skills and highlighting key projects.
-
-### Instructions:
-
-## Job Description Analysis:
-
-- Review the provided job description carefully.
-- Identify the key responsibilities, required skills, and qualifications.
-
-## Current Work Experience:
-- Analyze my existing work experience listed on my resume.
-- Maintain the original sentence structure and length, ensuring that the rewritten content is detailed and comprehensive.
-
-## Current Projects List:
-
-- Extract 1 or 2 relevant projects from my current projects list that showcase my skills and achievements.
-- Integrate these projects into the work experience narrative.
-
-## Extracted Skills:
-
-- Utilize the extracted skill list to enhance the rewritten work experience.
-- Ensure that the skills are seamlessly integrated into the descriptions of my roles and responsibilities.
-
-## ATS Compatibility:
-
-- Write in a way that is friendly for Applicant Tracking Systems (ATS).
-- Use keywords and phrases from the job description and extracted skills.
-
-## Tone and Style:
-
-- Maintain a professional tone throughout.
-- Ensure that the language is clear and impactful, showcasing my contributions and achievements.
-
-## Deliverables:
-
-- A rewritten work experience section that reflects the above criteria, ready for inclusion in my updated resume.
-
-## Job Description:
-{job_description}
-
-## context:
-{context}
-
-## Current Resume:
+### Inputs:
+Current Resume Experience Content: A list of bullet points describing the candidate’s past roles and responsibilities.
+# resume_txt
 {resume_txt}
 
-## Current Projects:
-{projects_txt}
+Extracted Tech Stacks: A list of technologies, tools, frameworks, and programming languages used by the candidate.
+# extracted_tech_stacks
+{extracted_tech_stacks}
 
-## Extracted Skills:
-{skills_txt}
+Tech Context: A description of the domain, technical environment, and role focus (e.g., cloud infrastructure, data engineering, frontend platforms, etc.).
+# tech_context
+{tech_context}
 
+Project List: Detailed project descriptions the candidate has worked on, including outcomes and technologies used.
+
+# projects
+{projects}
+
+Target Job Description: The job role the resume is being tailored for.
+# target_job_description
+{target_job_description}
+
+### Task:
+For each company listed in the current experience section, rewrite the bullet points by doing the following:
+
+Preserve the sentence structure, writing style, and length of each bullet exactly as in the original resume.
+
+Replace or enrich technology mentions with items from the Extracted Tech Stacks, ensuring accuracy and alignment with what the candidate actually used.
+
+Choose the most relevant project(s) from the Project List for each company and reflect their details (e.g., features built, impact, or responsibilities) in the bullets, but do not add new bullets.
+
+Incorporate the Tech Context naturally to reflect the candidate’s role and domain expertise.
+
+Ensure alignment with the Target Job Description, by subtly highlighting relevant skills or technologies, but without altering the number of bullets or sentence tone.
+
+### Output:
+Return the rewritten experience bullets for each company, formatted identically to a professional resume, with the updated technologies, enhanced relevance, and integrated project and domain context.
 """
 
 skill_extracting_prt = """
